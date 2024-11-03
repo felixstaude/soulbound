@@ -2,9 +2,11 @@ package de.felixstaude.soulbound.service;
 
 import de.felixstaude.soulbound.card.Card;
 import de.felixstaude.soulbound.repository.CardRepository;
+import de.felixstaude.soulbound.repository.TypeRepository;
+import de.felixstaude.soulbound.type.Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,14 +18,17 @@ import java.util.Optional;
 public class CardService {
 
     private final CardRepository cardRepository;
+    private final TypeRepository typeRepository;
 
     /**
-     * Constructor-based dependency injection of CardRepository.
+     * Constructor-based dependency injection of CardRepository and TypeRepository.
      * @param cardRepository The repository layer that handles database interactions for cards.
+     * @param typeRepository The repository layer that handles database interactions for types.
      */
     @Autowired
-    public CardService(CardRepository cardRepository) {
+    public CardService(CardRepository cardRepository, TypeRepository typeRepository) {
         this.cardRepository = cardRepository;
+        this.typeRepository = typeRepository;
     }
 
     /**
@@ -31,7 +36,22 @@ public class CardService {
      * @param card The Card object to be created.
      * @return The newly created Card object.
      */
+    @Transactional
     public Card createCard(Card card) {
+        // Ensure all types associated with the card are persisted
+        if (card.getTypes() != null) {
+            List<Type> persistedTypes = card.getTypes().stream()
+                    .map(type -> {
+                        if (type.getId() != null) {
+                            return typeRepository.findById(type.getId()).orElseGet(() -> typeRepository.save(type));
+                        } else {
+                            return typeRepository.findByName(type.getName()).orElseGet(() -> typeRepository.save(type));
+                        }
+                    })
+                    .toList();
+            card.setTypes(persistedTypes);
+        }
+        // Save the card
         return cardRepository.save(card);
     }
 
@@ -58,8 +78,22 @@ public class CardService {
      * @param updatedCard The updated Card object with new details.
      * @return The updated Card object, or null if the Card with the given ID does not exist.
      */
+    @Transactional
     public Card updateCard(Long id, Card updatedCard) {
         if (cardRepository.existsById(id)) {
+            // Ensure all types associated with the updated card are persisted
+            if (updatedCard.getTypes() != null) {
+                List<Type> persistedTypes = updatedCard.getTypes().stream()
+                        .map(type -> {
+                            if (type.getId() != null) {
+                                return typeRepository.findById(type.getId()).orElseGet(() -> typeRepository.save(type));
+                            } else {
+                                return typeRepository.findByName(type.getName()).orElseGet(() -> typeRepository.save(type));
+                            }
+                        })
+                        .toList();
+                updatedCard.setTypes(persistedTypes);
+            }
             updatedCard.setId(id); // Ensure the correct ID is set for the update
             return cardRepository.save(updatedCard);
         }
@@ -70,6 +104,7 @@ public class CardService {
      * Deletes a Card entity by its ID.
      * @param id The ID of the Card to delete.
      */
+    @Transactional
     public void deleteCard(Long id) {
         cardRepository.deleteById(id);
     }

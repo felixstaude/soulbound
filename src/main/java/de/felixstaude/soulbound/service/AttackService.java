@@ -1,9 +1,12 @@
 package de.felixstaude.soulbound.service;
 
 import de.felixstaude.soulbound.attack.Attack;
+import de.felixstaude.soulbound.card.Card;
 import de.felixstaude.soulbound.repository.AttackRepository;
+import de.felixstaude.soulbound.repository.CardRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,14 +19,13 @@ import java.util.Optional;
 public class AttackService {
 
     private final AttackRepository attackRepository;
+    private final CardRepository cardRepository;
 
-    /**
-     * Constructor-based dependency injection of AttackRepository.
-     * @param attackRepository Repository for Attack entities.
-     */
+    // Constructor-based dependency injection of repositories
     @Autowired
-    public AttackService(AttackRepository attackRepository) {
+    public AttackService(AttackRepository attackRepository, CardRepository cardRepository) {
         this.attackRepository = attackRepository;
+        this.cardRepository = cardRepository;
     }
 
     /**
@@ -31,7 +33,16 @@ public class AttackService {
      * @param attack The Attack entity to be saved.
      * @return The saved Attack entity.
      */
+    @Transactional
     public Attack createAttack(Attack attack) {
+        Card card = attack.getCard();
+
+        // Explicitly save the Card entity first, if it is not already persisted
+        if (card != null && card.getId() == null) {
+            cardRepository.save(card);
+        }
+
+        // Now save the Attack entity
         return attackRepository.save(attack);
     }
 
